@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Restoran</title> 
+    <link rel="stylesheet" href="style.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        /* CSS Tambahan untuk Admin Dashboard */
+        
+        /* TAB NAVIGASI */
+        .admin-tabs { 
+            display: flex; 
+            gap: 15px; 
+            margin-bottom: 30px; 
+            border-bottom: 2px solid var(--color-border); 
+            padding-bottom: 10px; 
+            overflow-x: auto; 
+        }
+        .tab-btn { 
+            background: none; 
+            border: none; 
+            color: var(--color-text-light); 
+            font-weight: 600; 
+            cursor: pointer; 
+            padding: 10px; 
+            font-size: 1rem; 
+            white-space: nowrap; 
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .tab-btn:hover { 
+            color: var(--color-secondary); 
+        }
+        .tab-btn.active { 
+            color: var(--color-primary); 
+            border-bottom: 3px solid var(--color-primary); 
+            transform: translateY(2px);
+        }
+
+        /* KARTU PESANAN */
+        .order-card { 
+            background: var(--color-surface); 
+            border: 1px solid var(--color-border); 
+            border-radius: 12px; 
+            padding: 25px; 
+            margin-bottom: 20px; 
+            box-shadow: var(--shadow-soft); 
+            border-left: 5px solid var(--color-secondary); 
+            transition: border-left-color 0.3s;
+            animation: fadeIn 0.5s; 
+        }
+        .order-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            margin-bottom: 15px; 
+            border-bottom: 1px solid var(--color-border); 
+            padding-bottom: 10px; 
+        }
+        .order-status { 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            font-size: 0.8rem; 
+            font-weight: bold; 
+            letter-spacing: 0.5px; 
+        }
+
+        /* LIST MENU (KELOLA) */
+        .manage-item { 
+            display: flex; 
+            gap: 20px; 
+            background: var(--color-surface); 
+            padding: 18px; 
+            border-radius: 12px; 
+            margin-bottom: 15px; 
+            border: 1px solid var(--color-border); 
+            align-items: center; 
+            transition: all 0.2s; 
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .manage-item:hover { 
+            transform: translateX(8px); 
+            border-color: var(--color-primary); 
+        }
+        .manage-thumb { 
+            width: 70px; 
+            height: 70px; 
+            border-radius: 8px; 
+            object-fit: cover; 
+            background: var(--color-bg); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 35px;
+            overflow: hidden;
+        }
+        .manage-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .manage-info { 
+            flex: 1; 
+        }
+        .manage-actions { 
+            display: flex; 
+            gap: 10px; 
+            flex-shrink: 0;
+        }
+        
+        /* LOGIN OVERLAY */
+        .admin-login-overlay { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: var(--color-bg); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 9999; 
+        }
+        .login-box { 
+            background: var(--color-surface); 
+            padding: 50px 40px; 
+            border-radius: 16px; 
+            width: 90%; 
+            max-width: 400px; 
+            text-align: center; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5); 
+            border: 2px solid var(--color-primary);
+        }
+        .error-msg { 
+            color: var(--color-danger); 
+            margin-top: 20px; 
+            font-weight: bold; 
+            display: none; 
+            background: rgba(239, 68, 68, 0.1); 
+            padding: 10px; 
+            border-radius: 8px; 
+        }
+        
+        /* MODAL KHUSUS ADMIN */
+        .modal-content {
+            max-height: 90vh; 
+            overflow-y: auto;
+        }
+        #editModal .modal-content {
+            max-width: 550px;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="admin-login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <div style="font-size: 3.5rem; margin-bottom: 15px;">👨‍🍳</div>
+            <h2 style="color:var(--color-text); margin-bottom: 10px;">Login Pemilik Restoran</h2>
+            <p style="color:var(--color-text-light); margin-bottom: 30px;">Area khusus staf dapur & kasir</p>
+            
+            <div class="form-group"><input type="text" class="search-input" id="admUser" placeholder="Username"></div>
+            <div class="form-group"><input type="password" class="search-input" id="admPass" placeholder="Password"></div>
+            
+            <button class="btn btn-primary" style="width:100%; justify-content: center;" onclick="adminLogin()">Buka Dapur</button>
+            <div class="error-msg" id="errMsg">❌ Username atau Password Salah!</div>
+        </div>
+    </div>
+
+    <div class="main-container" id="adminPanel" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px; padding-top: 15px;">
+            <div>
+                <h2 style="color:var(--color-text); margin-bottom: 5px;">👨‍🍳 Dapur Restoran</h2>
+                <p style="color:var(--color-text-light); font-size: 0.9rem;">Pantau pesanan & kelola menu</p>
+            </div>
+            <button onclick="adminLogout()" class="btn btn-danger btn-sm">Keluar</button>
+        </div>
+
+        <div class="admin-tabs">
+            <button class="tab-btn active" onclick="switchTab('orders')">📦 Pesanan Aktif</button>
+            <button class="tab-btn" onclick="switchTab('history')">✅ Riwayat Selesai</button>
+            <button class="tab-btn" onclick="switchTab('add')">➕ Tambah Menu</button>
+            <button class="tab-btn" onclick="switchTab('manage')">🛠️ Kelola Menu</button>
+        </div>
+
+        <div id="tabOrders">
+            <h3 style="margin-top: 10px; color: var(--color-primary);">Semua Pesanan yang Perlu Diproses</h3>
+            <div id="ordersListActive">
+                <div class="empty-state">Sedang memuat pesanan aktif...</div>
+            </div>
+        </div>
+        
+        <div id="tabHistory" style="display: none;">
+            <h3 style="margin-top: 10px; color: var(--color-secondary);">Riwayat Semua Pesanan yang Sudah Selesai</h3>
+            <div id="ordersListCompleted">
+                <div class="empty-state">Sedang memuat riwayat selesai...</div>
+            </div>
+        </div>
+
+        <div id="tabAdd" style="display: none;">
+            <div style="background: var(--color-surface); padding: 30px; border-radius: 16px; border: 1px solid var(--color-border);">
+                <form onsubmit="addMenu(event)">
+                    <div class="form-group"><label class="form-label">Nama Makanan</label><input type="text" class="search-input" id="mName" required></div>
+                    <div class="form-group"><label class="form-label">Harga (Rp)</label><input type="number" class="search-input" id="mPrice" required></div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Kategori</label>
+                        <select class="search-input" id="mCat">
+                            <option value="nasi">🍚 Nasi</option>
+                            <option value="mie">🍜 Mie</option>
+                            <option value="ayam">🍗 Ayam</option>
+                            <option value="burger">🍔 Burger</option>
+                            <option value="minuman">🥤 Minuman</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group"><label class="form-label">Deskripsi</label><textarea type="text" class="search-input" id="mDesc" rows="3" required></textarea></div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Gambar Menu</label>
+                        <div style="display:flex; gap:20px; margin-bottom:15px;">
+                            <label style="cursor:pointer;"><input type="radio" name="imgType" value="file" checked onclick="toggleInput('file', 'Add')"> 📸 Upload Foto</label>
+                            <label style="cursor:pointer;"><input type="radio" name="imgType" value="emoji" onclick="toggleInput('emoji', 'Add')"> 😀 Pakai Emoji</label>
+                        </div>
+                        
+                        <div id="inputGroupFileAdd">
+                            <input type="file" class="search-input" id="mImgFile" accept="image/*">
+                            <p style="font-size:0.8rem; color:var(--color-danger); margin-top:5px;">*Wajib foto kecil (< 700KB). Gunakan Screenshot/Optimizer.</p>
+                        </div>
+                        <div id="inputGroupEmojiAdd" style="display:none;">
+                            <input type="text" class="search-input" id="mEmojiTxt" placeholder="Contoh: 🍔 atau ☕" maxlength="10">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width:100%; justify-content: center;" id="saveBtn">Simpan Menu Baru</button>
+                </form>
+                <div id="status" style="text-align:center; margin-top:20px; font-weight:bold;"></div>
+            </div>
+        </div>
+
+        <div id="tabManage" style="display: none;">
+            <div id="manageList">
+                <div class="empty-state">Sedang memuat menu...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">✏️ Edit Menu</h3>
+                <button class="close-btn" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form onsubmit="saveEditMenu(event)">
+                    <input type="hidden" id="editId">
+                    
+                    <div class="form-group"><label class="form-label">Nama</label><input type="text" class="search-input" id="editName" required></div>
+                    <div class="form-group"><label class="form-label">Harga</label><input type="number" class="search-input" id="editPrice" required></div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Kategori</label>
+                        <select class="search-input" id="editCat">
+                            <option value="nasi">Nasi</option>
+                            <option value="mie">Mie</option>
+                            <option value="ayam">Ayam</option>
+                            <option value="burger">Burger</option>
+                            <option value="minuman">Minuman</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group"><label class="form-label">Deskripsi</label><textarea class="search-input" id="editDesc" rows="2" required></textarea></div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Ganti Gambar (Opsional)</label>
+                        <div style="display:flex; gap:20px; margin-bottom:10px;">
+                            <label><input type="radio" name="editImgType" value="file" checked onclick="toggleInput('file', 'Edit')"> 📸 Foto</label>
+                            <label><input type="radio" name="editImgType" value="emoji" onclick="toggleInput('emoji', 'Edit')"> 😀 Emoji</label>
+                        </div>
+                        
+                        <div id="inputGroupFileEdit">
+                            <input type="file" class="search-input" id="editImgFile" accept="image/*">
+                        </div>
+                        <div id="inputGroupEmojiEdit" style="display:none;">
+                            <input type="text" class="search-input" id="editEmojiTxt" placeholder="Emoji baru...">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width:100%; justify-content: center;" id="editSaveBtn">Update Menu</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="admin-functions.js"></script>
+</body>
+</html>
